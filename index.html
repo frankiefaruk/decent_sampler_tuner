@@ -1,0 +1,917 @@
+<html>
+<head>
+  <base href=".">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <title>Decent Sampler Adjuster</title>
+  <style>
+    /* reset and modern base */
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --primary: #4a90e2;
+      --secondary: #5cb3b0;
+      --background: #1a1a1a;
+      --surface: #2d2d2d;
+      --text: #e0e0e0;
+      --border: #404040;
+      --error: #e74c3c; /* Added error color */
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--background);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--surface);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    }
+
+    .plugin-preview {
+      width: 100%;
+      height: 300px;
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 1.75rem;
+      font-weight: 600;
+    }
+
+    button, .file-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--secondary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+    button:hover, .file-label:hover {
+      background: var(--primary);
+    }
+    button:active, .file-label:active {
+      transform: scale(0.98);
+    }
+    button.active {
+      background: var(--primary);
+    }
+
+    /* section cards */
+    .section {
+      margin: 2rem 0;
+      padding: 1.5rem;
+      background: var(--surface);
+      border-radius: 8px;
+    }
+    .section h2 {
+      margin: 0 0 1rem;
+      font-size: 1.125rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    select {
+      width: 100%;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+
+    .keyboard {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      gap: 2px;
+    }
+
+    .key {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: calc(100% / 12);
+      aspect-ratio: 0.25;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0 0 6px 6px;
+      padding: 5px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .key.black {
+      background: #000;
+      height: 60%;
+      margin: 0 -12px;
+      z-index: 1;
+    }
+
+    .key input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      text-align: center;
+      font-size: 12px;
+      padding: 2px;
+      margin-top: auto;
+    }
+
+    .output {
+      margin-top: 20px;
+      padding: 15px;
+      background: var(--surface);
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .copy-success {
+      background: var(--secondary) !important;
+    }
+
+    .dimensions-inputs {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    .dimensions-inputs input {
+      width: 80px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 4px;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .dimensions-inputs span {
+      color: var(--text);
+    }
+
+    /* New CSS rules for color pickers to match the UI consistency */
+    input[type="color"] {
+      -webkit-appearance: none;
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      width: 40px;
+      height: 30px;
+      padding: 0;
+      background: var(--surface);
+      cursor: pointer;
+      vertical-align: middle; /* Align with surrounding text/elements */
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+      border-radius: 4px;
+    }
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+    <h1>Decent Sampler Adjuster</h1>
+    
+    <div class="plugin-preview">
+        <div class="dimensions-inputs">
+            <input type="number" id="uiWidth" placeholder="Width" min="1">
+            <span>&#xd7;</span>
+            <input type="number" id="uiHeight" placeholder="Height" min="1">
+        </div>
+    </div>
+
+    <div class="controls">
+        <label class="file-label" for="fileInput">Load .dspreset file</label>
+        <input type="file" id="fileInput" class="file-input" accept=".dspreset">
+        <button id="applyTuning">Update Changes</button>
+        <button id="resetTuning">Reset All</button>
+        <button id="copyXml">Copy XML</button>
+    </div>
+
+    <div class="section image-renaming-section" id="imageRenamingSection">
+        <h2>Image File Renaming</h2>
+        <div id="imageRenameList"></div>
+    </div>
+    
+    <div class="section color-section" id="colorSection">
+      <h2>Colors in XML Script</h2>
+      <div id="colorList"></div>
+    </div>
+
+    <div class="section keyboard-color-section" id="keyboardColorSection">
+        <h2>Keyboard Colors</h2>
+        <div id="keyboardColorList"></div>
+    </div>
+
+    <div class="section preset-section">
+        <select id="tonicSelect">
+            <option value="C">C</option>
+            <option value="C#">C#</option>
+            <option value="D">D</option>
+            <option value="D#">D#</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+            <option value="F#">F#</option>
+            <option value="G">G</option>
+            <option value="G#">G#</option>
+            <option value="A">A</option>
+            <option value="A#">A#</option>
+            <option value="B">B</option>
+        </select>
+        <div class="controls">
+            <button id="usakMakam">Usak Makamı</button>
+            <button id="rastMakam">Rast Makamı</button>
+            <button id="suzinakMakam">Suzinak Makamı</button>
+            <button id="hicazMakam">Zirguleli Hicaz Makamı</button>
+            <button id="standardTuning">Standard Tuning</button>
+            <label style="display:flex; align-items:center; padding:12px; font-size:14px;">
+                <input type="checkbox" id="organiseSamples" style="margin-right:8px; width:auto; height:auto;">
+                Organise Samples
+            </label>
+        </div>
+    </div>
+
+    <div class="keyboard" id="keyboard"></div>
+    
+    <div class="output" id="output"></div>
+</div>
+
+<script>
+  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  let dspresetContent = null;
+  let dspresetDoc = null; // Variable to hold the parsed XML document
+
+  function isBlackKey(note) {
+    return note.includes('#');
+  }
+
+  function initializeKeyboard() {
+    const keyboard = document.getElementById('keyboard');
+    keyboard.innerHTML = '';
+    noteNames.forEach(note => {
+      const key = document.createElement('div');
+      key.className = `key ${isBlackKey(note) ? 'black' : 'white'}`;
+      key.innerHTML = `
+              <div>${note}</div>
+              <input type="number" 
+                     step="0.01" 
+                     value="0" 
+                     min="-100" 
+                     max="100" 
+                     data-note="${note}" 
+                     placeholder="Cents">
+          `;
+      keyboard.appendChild(key);
+    });
+  }
+
+  function parsePluginDimensions(content) {
+    const uiMatch = content.match(/<ui[^>]+>/);
+    if (uiMatch) {
+      const widthMatch = uiMatch[0].match(/width="(\d+)"/);
+      const heightMatch = uiMatch[0].match(/height="(\d+)"/);
+      const bgImageMatch = uiMatch[0].match(/bgImage="([^"]+)"/);
+      const bgColorMatch = uiMatch[0].match(/bgColor="([^"]+)"/);
+      const dimensions = {
+        width: widthMatch ? widthMatch[1] : null,
+        height: heightMatch ? heightMatch[1] : null,
+        bgImage: bgImageMatch ? bgImageMatch[1] : null,
+        bgColor: bgColorMatch ? bgColorMatch[1] : null
+      };
+      const preview = document.querySelector('.plugin-preview');
+      const widthInput = document.getElementById('uiWidth');
+      const heightInput = document.getElementById('uiHeight');
+      if (dimensions.width && dimensions.height) {
+        preview.style.aspectRatio = `${dimensions.width}/${dimensions.height}`;
+        widthInput.value = dimensions.width;
+        heightInput.value = dimensions.height;
+      } else {
+         preview.style.aspectRatio = '';
+         widthInput.value = '';
+         heightInput.value = '';
+      }
+      if (dimensions.bgColor) {
+        preview.style.backgroundColor = `#${dimensions.bgColor}`;
+      } else {
+        preview.style.backgroundColor = '';
+      }
+      return dimensions;
+    }
+     const preview = document.querySelector('.plugin-preview');
+     preview.style.aspectRatio = '';
+     preview.style.backgroundColor = '';
+     document.getElementById('uiWidth').value = '';
+     document.getElementById('uiHeight').value = '';
+    return null;
+  }
+
+  function setTuningValue(note, cents) {
+    const input = document.querySelector(`input[data-note="${note}"]`);
+    if (input) {
+      input.value = cents;
+    }
+  }
+
+  function getNoteIndex(note) {
+    return noteNames.indexOf(note);
+  }
+
+  function getRelativeNote(tonic, interval) {
+    const tonicIndex = getNoteIndex(tonic);
+    // Ensure interval handles wraps correctly, though for 0-11 it's simple
+    const targetIndex = (tonicIndex + interval + 12) % 12; 
+    return noteNames[targetIndex];
+  }
+
+  function resetUI() {
+    document.querySelectorAll('.key input').forEach(input => {
+      input.value = 0;
+    });
+    document.getElementById('uiWidth').value = '';
+    document.getElementById('uiHeight').value = '';
+    const preview = document.querySelector('.plugin-preview');
+    preview.style.aspectRatio = '';
+    preview.style.backgroundColor = '';
+    document.getElementById('output').textContent = '';
+    document.getElementById('imageRenameList').innerHTML = '';
+    document.getElementById('colorList').innerHTML = '';
+    document.getElementById('keyboardColorList').innerHTML = '';
+
+    const presetButtons = ['usakMakam', 'rastMakam', 'suzinakMakam', 'hicazMakam', 'standardTuning'];
+    presetButtons.forEach(id =>
+      document.getElementById(id).classList.remove('active')
+    );
+    document.getElementById('tonicSelect').value = 'C'; // Reset tonic select
+    document.getElementById('organiseSamples').checked = false; // Reset organise samples checkbox
+  }
+
+  document.getElementById('usakMakam').addEventListener('click', () => {
+    const tonic = document.getElementById('tonicSelect').value;
+    const targetNote = getRelativeNote(tonic, 2); // Major second above tonic
+    setTuningValue(targetNote, -0.49);
+  });
+
+  document.getElementById('rastMakam').addEventListener('click', () => {
+    const tonic = document.getElementById('tonicSelect').value;
+    const targetNote = getRelativeNote(tonic, 4);
+    setTuningValue(targetNote, -0.49);
+  });
+
+  document.getElementById('suzinakMakam').addEventListener('click', () => {
+    const tonic = document.getElementById('tonicSelect').value;
+    const targetNote1 = getRelativeNote(tonic, 4);
+    const targetNote2 = getRelativeNote(tonic, 7);
+    setTuningValue(targetNote1, -0.49);
+    setTuningValue(targetNote2, 0.11);
+  });
+
+  document.getElementById('hicazMakam').addEventListener('click', () => {
+    const tonic = document.getElementById('tonicSelect').value;
+    const targetNote1 = getRelativeNote(tonic, 1);
+    const targetNote2 = getRelativeNote(tonic, 2);
+    const targetNote3 = getRelativeNote(tonic, 3);
+
+    setTuningValue(targetNote1, 0);
+    setTuningValue(targetNote2, 0);
+    setTuningValue(targetNote3, 0);
+  });
+
+  document.getElementById('tonicSelect').addEventListener('change', () => {
+    const activeButtons = ['usakMakam', 'rastMakam', 'suzinakMakam', 'hicazMakam'];
+    const lastClickedButton = activeButtons.find(id =>
+      document.getElementById(id).classList.contains('active')
+    );
+    
+    // Clear all existing tuning values on the keyboard
+    document.querySelectorAll('.key input').forEach(input => {
+      input.value = 0;
+    });
+
+    // Reapply the last active makam tuning relative to the new tonic
+    if (lastClickedButton) {
+      document.getElementById(lastClickedButton).click();
+    }
+  });
+
+  const presetButtons = ['usakMakam', 'rastMakam', 'suzinakMakam', 'hicazMakam', 'standardTuning'];
+  presetButtons.forEach(id => {
+    const button = document.getElementById(id);
+    button.addEventListener('click', () => {
+      // Only clear inputs if 'standardTuning' is clicked
+      if (id === 'standardTuning') {
+        document.querySelectorAll('.key input').forEach(input => {
+          input.value = 0;
+        });
+      }
+
+      presetButtons.forEach(bid =>
+        document.getElementById(bid).classList.remove('active')
+      );
+      if (id !== 'standardTuning') {
+        button.classList.add('active');
+      }
+    });
+  });
+
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function analyzeImages() {
+    if (!dspresetContent) return;
+    const regex = /(\w+)=["']Images\/([^"']+)["']/g;
+    let match;
+    const imagesMap = {};
+    while ((match = regex.exec(dspresetContent)) !== null) {
+      const fileName = match[2].trim();
+      const lowerName = fileName.toLowerCase();
+      let purpose = "";
+      if (lowerName.includes("knob")) {
+        purpose = "Knob image";
+      } else if (lowerName.includes("slider")) {
+        purpose = "Slider image";
+      } else {
+        purpose = "Background image for UI";
+      }
+      if (!imagesMap[fileName]) { 
+        imagesMap[fileName] = purpose;
+      }
+    }
+    const imageRenameList = document.getElementById('imageRenameList');
+    if (Object.keys(imagesMap).length === 0) {
+      imageRenameList.innerHTML = '<p style="font-size: 13px;">No image files found in the loaded .dspreset file.</p>';
+    } else {
+      let html = '';
+      for (const [file, purpose] of Object.entries(imagesMap)) {
+        const baseName = file.replace(/\.[^/.]+$/, ""); 
+        html += `<div class="image-row" style="display: flex; align-items: center; margin-bottom: 6px;">
+                   <div style="flex: 1; font-size: 13px; overflow-wrap: break-word; margin-right: 10px;">${baseName}</div> 
+                   <div style="flex: 1;">
+                     <input type="text" placeholder="Rename file (no extension)" data-original="${file}" style="width: 90%; padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text);">
+                   </div>
+                 </div>`;
+      }
+      imageRenameList.innerHTML = html;
+    }
+  }
+
+  function analyzeColors() {
+    const colorList = document.getElementById('colorList');
+    if (!dspresetContent) {
+      colorList.innerHTML = '<p style="font-size: 13px;">No XML content loaded.</p>';
+      return;
+    }
+    const regex = /(\w+Color)="([^"]+)"/g;
+    const colorsFound = {};
+    let match;
+    while ((match = regex.exec(dspresetContent)) !== null) {
+      const attr = match[1];
+      let colorVal = match[2];
+      if (colorVal.startsWith('#')) {
+        colorVal = colorVal.substring(1);
+      }
+      if (/^[0-9a-fA-F]{6}$/.test(colorVal)) {
+         const key = attr + '_' + colorVal;
+         if (!colorsFound[key]) {
+           colorsFound[key] = { attribute: attr, value: colorVal };
+         }
+      }
+    }
+    let html = '';
+    if (Object.keys(colorsFound).length === 0) {
+      html = '<p style="font-size: 13px;">No color values found in the XML script.</p>';
+    } else {
+      for (const key in colorsFound) {
+        const entry = colorsFound[key];
+        const initialColor = '#' + entry.value;
+        html += `<div class="color-row" style="display: flex; align-items: center; margin-bottom: 6px;">
+                   <div style="flex: 1; font-size: 13px; padding-right: 5px;">${entry.attribute}</div>
+                   <div style="flex: 1;">
+                     <input type="color" value="${initialColor}" data-attr="${entry.attribute}" data-old="${entry.value}" data-original="${entry.value}" style="width: 100%;">
+                   </div>
+                   <div style="flex: 1; font-size: 13px; padding-left: 5px;">
+                     Original: <span style="display:inline-block; width:20px; height:20px; background:${initialColor}; border:1px solid var(--border); vertical-align: middle;"></span> ${initialColor}
+                   </div>
+                 </div>`;
+      }
+    }
+    colorList.innerHTML = html;
+
+    document.querySelectorAll('#colorList input[type="color"]').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const attr = e.target.getAttribute('data-attr');
+        const oldVal = e.target.getAttribute('data-old');
+        const newColorHex = e.target.value.startsWith('#') ? e.target.value.substring(1) : e.target.value;
+        const regexUpdate = new RegExp('(' + attr + '=")' + escapeRegExp(oldVal) + '(")', 'g');
+        dspresetContent = dspresetContent.replace(regexUpdate, `$1${newColorHex}$2`);
+        e.target.setAttribute('data-old', newColorHex);
+      });
+    });
+  }
+
+  function midiToNoteName(midi) {
+      if (midi < 0 || midi > 127) return 'Invalid Note';
+      const octave = Math.floor(midi / 12) - 1; 
+      const noteIndex = midi % 12;
+      return `${noteNames[noteIndex]}${octave}`;
+  }
+
+  function analyzeKeyboardColors() {
+    const keyboardColorList = document.getElementById('keyboardColorList');
+    if (!dspresetContent) {
+      keyboardColorList.innerHTML = '<p style="font-size: 13px;">No XML content loaded.</p>';
+      return;
+    }
+
+    const keyboardMatch = dspresetContent.match(/<keyboard>([\s\S]*?)<\/keyboard>/);
+    if (!keyboardMatch || !keyboardMatch[1]) {
+        keyboardColorList.innerHTML = '<p style="font-size: 13px;">No &lt;keyboard&gt; section found in the XML.</p>';
+        return;
+    }
+
+    const keyboardContent = keyboardMatch[1];
+    const colorRegex = /<color[^>]+>/g;
+    let match;
+    const colorsFound = [];
+
+    while ((match = colorRegex.exec(keyboardContent)) !== null) {
+      const colorTag = match[0];
+      const loNoteMatch = colorTag.match(/loNote="(\d+)"/);
+      const hiNoteMatch = colorTag.match(/hiNote="(\d+)"/);
+      const colorMatch = colorTag.match(/color="#([0-9a-fA-F]+)"/i); 
+
+      if (loNoteMatch && hiNoteMatch && colorMatch) {
+        const loNote = parseInt(loNoteMatch[1]);
+        const hiNote = parseInt(hiNoteMatch[1]);
+        const color = colorMatch[1]; 
+
+        colorsFound.push({
+          loNote: loNote,
+          hiNote: hiNote,
+          color: color,
+          originalTag: colorTag 
+        });
+      }
+    }
+
+    let html = '';
+    if (colorsFound.length === 0) {
+      html = '<p style="font-size: 13px;">No &lt;color&gt; elements found within the &lt;keyboard&gt; section.</p>';
+    } else {
+      colorsFound.forEach((entry, index) => {
+        const rangeText = `${midiToNoteName(entry.loNote)} to ${midiToNoteName(entry.hiNote)}`;
+        const initialColor = '#' + entry.color;
+
+        html += `<div class="color-row" style="display: flex; align-items: center; margin-bottom: 6px;">
+                   <div style="flex: 1; font-size: 13px; padding-right: 5px;">${rangeText}</div>
+                   <div style="flex: 1;">
+                     <input type="color" value="${initialColor}"
+                            data-lo-note="${entry.loNote}"
+                            data-hi-note="${entry.hiNote}"
+                            data-original-color="${entry.color}"
+                            style="width: 100%;">
+                   </div>
+                   <div style="flex: 1; font-size: 13px; padding-left: 5px;">
+                     Original: <span style="display:inline-block; width:20px; height:20px; background:${initialColor}; border:1px solid var(--border); vertical-align: middle;"></span> ${initialColor}
+                   </div>
+                 </div>`;
+      });
+    }
+    keyboardColorList.innerHTML = html;
+
+    document.querySelectorAll('#keyboardColorList input[type="color"]').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const loNote = e.target.getAttribute('data-lo-note');
+        const hiNote = e.target.getAttribute('data-hi-note');
+        const originalColor = e.target.getAttribute('data-original-color');
+        const newColorHex = e.target.value.startsWith('#') ? e.target.value.substring(1) : e.target.value;
+
+        // Construct regex with proper escaping for originalColor
+        const escapedOriginalColor = escapeRegExp(originalColor);
+        const regexUpdate = new RegExp(`(<color loNote="${loNote}" hiNote="${hiNote}" color="#)${escapedOriginalColor}(")`, 'i');
+        dspresetContent = dspresetContent.replace(regexUpdate, `$1${newColorHex}$2`);
+
+        document.getElementById('output').textContent = dspresetContent; // Update output live
+
+        e.target.setAttribute('data-original-color', newColorHex);
+      });
+    });
+  }
+
+  document.getElementById('fileInput').addEventListener('change', async e => {
+    resetUI();
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      dspresetContent = text;
+      // Parse XML to DOM document once
+      const parser = new DOMParser();
+      dspresetDoc = parser.parseFromString(text, 'application/xml');
+
+      // Check for parsing errors
+      const errorNode = dspresetDoc.querySelector('parsererror');
+      if (errorNode) {
+        throw new Error('Error parsing XML: ' + errorNode.textContent);
+      }
+
+      const dimensions = parsePluginDimensions(text);
+      document.getElementById('output').textContent = 'File loaded successfully!';
+      analyzeImages();
+      analyzeColors();
+      analyzeKeyboardColors();
+    } catch (err) {
+      document.getElementById('output').textContent = 'Error loading file: ' + err.message;
+    }
+  });
+
+  document.getElementById('resetTuning').addEventListener('click', () => {
+    resetUI();
+    dspresetContent = null;
+    dspresetDoc = null; // Clear XML document as well
+    document.getElementById('fileInput').value = '';
+  });
+
+  // Helper to extract a number from a sample path for sorting
+  function getSampleSortKey(samplePath, groupName) {
+    const filename = samplePath.split('/').pop();
+    if (groupName.startsWith('RR')) {
+        // For RR groups, sort by the leading number in the filename
+        const match = filename.match(/^(\d+)/);
+        return match ? parseFloat(match[1]) : NaN;
+    } else if (filename.includes('_Slap_Stereo_V')) { // More robust check for slap sounds
+        // For Slap Sound, sort by the number after 'V'
+        const match = filename.match(/_V(\d+)/);
+        return match ? parseFloat(match[1]) : NaN;
+    }
+    // Fallback for other cases or if no specific number is found
+    return filename; // Fallback to string comparison
+  }
+
+  // Helper to sort groups
+  function sortGroups(groups) {
+      groups.sort((a, b) => {
+          const nameA = a.name;
+          const nameB = b.name;
+
+          const rrMatchA = nameA.match(/^RR(\d+)$/);
+          const rrMatchB = nameB.match(/^RR(\d+)$/);
+
+          if (rrMatchA && rrMatchB) {
+              return parseInt(rrMatchA[1]) - parseInt(rrMatchB[1]);
+          } else if (rrMatchA) {
+              return -1; // RR groups come first
+          } else if (rrMatchB) {
+              return 1; // RR groups come first
+          } else {
+              return nameA.localeCompare(nameB); // Alphabetical for non-RR
+          }
+      });
+  }
+
+  document.getElementById('applyTuning').addEventListener('click', () => {
+    if (!dspresetDoc) { // Use dspresetDoc for XML manipulation
+      document.getElementById('output').textContent = 'Please load a .dspreset file first!';
+      return;
+    }
+
+    const tuningValues = {};
+    document.querySelectorAll('.key input').forEach(input => {
+      const note = input.dataset.note;
+      const cents = parseFloat(input.value) || 0; 
+      tuningValues[note] = cents;
+    });
+
+    // Handle image renaming using the stored dspresetContent, as DOM manipulation for this might be excessive
+    // Assuming image paths are simple string replacements as before
+    let modifiedContent = dspresetContent; // Start with the current string content
+
+    const imageInputs = document.querySelectorAll('#imageRenameList input[data-original]');
+    imageInputs.forEach(input => {
+      const original = input.getAttribute('data-original'); 
+      let newName = input.value.trim(); 
+
+      if (newName && newName !== original) { 
+        const originalExtMatch = original.match(/\.[^/.]+$/);
+        const originalExt = originalExtMatch ? originalExtMatch[0] : ''; 
+        newName = newName + originalExt;
+
+        const escapedOriginal = escapeRegExp(original);
+        const imgRegex = new RegExp('(Images/)' + escapedOriginal, 'g');
+        modifiedContent = modifiedContent.replace(imgRegex, '$1' + newName);
+      }
+    });
+
+    // Apply color changes. These are already handled by live updates to dspresetContent.
+    // So modifiedContent already includes these changes.
+
+    // Re-parse modifiedContent into dspresetDoc so DOM-based sorting keeps the renamed images/colors
+    const docParser = new DOMParser();
+    dspresetDoc = docParser.parseFromString(modifiedContent, 'application/xml');
+
+    const organiseSamples = document.getElementById('organiseSamples').checked;
+
+    // --- XML Manipulation using DOMParser for samples and groups ---
+    const clonedDoc = dspresetDoc.cloneNode(true);
+    const groupsElement = clonedDoc.querySelector('groups');
+
+    if (groupsElement) {
+        const parsedGroups = [];
+        // Iterate over child elements to get actual <group> tags
+        for (const child of Array.from(groupsElement.children)) {
+            if (child.tagName === 'group') {
+                const groupName = child.getAttribute('name') || '';
+                const samplesInGroup = [];
+                const nonSampleNodes = []; // To preserve effects and other non-sample nodes
+
+                for (const sampleChild of Array.from(child.children)) {
+                    if (sampleChild.tagName === 'sample') {
+                        const path = sampleChild.getAttribute('path');
+                        const rootNote = sampleChild.hasAttribute('rootNote') ? parseInt(sampleChild.getAttribute('rootNote')) : null;
+                        samplesInGroup.push({
+                            node: sampleChild, // Store the actual DOM node
+                            path: path,
+                            rootNote: rootNote
+                        });
+                    } else {
+                        nonSampleNodes.push(sampleChild); // Store other nodes (like effects)
+                    }
+                }
+                parsedGroups.push({
+                    node: child, // Store the actual DOM node of the group
+                    name: groupName,
+                    samples: samplesInGroup,
+                    nonSampleNodes: nonSampleNodes
+                });
+            }
+        }
+
+        if (organiseSamples) {
+            // Sort groups by name (RR1, RR2, RR3, Slap Sound)
+            sortGroups(parsedGroups);
+
+            // Sort samples within each group
+            parsedGroups.forEach(group => {
+                group.samples.sort((a, b) => {
+                    const keyA = getSampleSortKey(a.path, group.name);
+                    const keyB = getSampleSortKey(b.path, group.name);
+
+                    if (typeof keyA === 'number' && typeof keyB === 'number' && !isNaN(keyA) && !isNaN(keyB)) {
+                        return keyA - keyB;
+                    }
+                    return a.path.localeCompare(b.path);
+                });
+            });
+        }
+
+        // Clear existing children from the <groups> element
+        while (groupsElement.firstChild) {
+            groupsElement.removeChild(groupsElement.firstChild);
+        }
+
+        // Append sorted groups and their sorted samples
+        parsedGroups.forEach(group => {
+            // Clear existing children from the group node before re-appending
+            while (group.node.firstChild) {
+                group.node.removeChild(group.node.firstChild);
+            }
+            // Append sorted samples
+            group.samples.forEach(sample => {
+                const noteName = noteNames[sample.rootNote % 12];
+                const tuningValue = tuningValues[noteName];
+                // Update tuning attribute on the sample node
+                if (tuningValue !== 0) {
+                    sample.node.setAttribute('tuning', tuningValue.toFixed(2));
+                } else {
+                    sample.node.removeAttribute('tuning'); // Remove if tuning is 0
+                }
+                group.node.appendChild(sample.node);
+            });
+            // Append other nodes (effects etc.)
+            group.nonSampleNodes.forEach(node => {
+                group.node.appendChild(node);
+            });
+            groupsElement.appendChild(group.node);
+        });
+
+        // Serialize the modified XML document back to a string
+        const serializer = new XMLSerializer();
+        modifiedContent = serializer.serializeToString(clonedDoc);
+
+        // Pretty print the XML (optional, but good for readability)
+        // This is a basic attempt to add some indentation for better readability
+        const parser = new DOMParser(); // Re-create parser for the pretty print
+        const xmlDoc = parser.parseFromString(modifiedContent, 'application/xml');
+        const xsltProcessor = new XSLTProcessor();
+        const stylesheet = parser.parseFromString(`
+            <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+                <xsl:output indent="yes"/>
+                <xsl:strip-space elements="*"/>
+                <xsl:template match="@*|node()">
+                    <xsl:copy>
+                        <xsl:apply-templates select="@*|node()"/>
+                    </xsl:copy>
+                </xsl:template>
+            </xsl:stylesheet>
+        `, 'application/xml');
+        xsltProcessor.importStylesheet(stylesheet);
+        const resultDoc = xsltProcessor.transformToDocument(xmlDoc);
+        modifiedContent = new XMLSerializer().serializeToString(resultDoc);
+        
+        // Ensure XML declaration is present at the top of the output
+        modifiedContent = modifiedContent.trim();
+        if (!modifiedContent.startsWith('<?xml')) {
+          modifiedContent = '<?xml version="1.0" encoding="UTF-8"?>\n' + modifiedContent;
+        }
+
+    } else {
+        // If no <groups> element found, the sample organization doesn't apply
+        // But the rest of the changes (tuning, image renaming, colors) still do.
+    }
+
+    document.getElementById('output').textContent = modifiedContent;
+    dspresetContent = modifiedContent; // Update global content for next operations
+  });
+
+  document.getElementById('standardTuning').addEventListener('click', () => {
+    resetUI();
+  });
+
+  document.getElementById('copyXml').addEventListener('click', async () => {
+    const output = document.getElementById('output');
+    const copyButton = document.getElementById('copyXml');
+    if (output.textContent && !output.textContent.startsWith('File loaded')) {
+      try {
+        await navigator.clipboard.writeText(output.textContent);
+        copyButton.classList.add('copy-success');
+        copyButton.textContent = 'Copied!';
+        setTimeout(() => {
+          copyButton.classList.remove('copy-success');
+          copyButton.textContent = 'Copy XML';
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+      }
+    } else {
+       copyButton.textContent = 'Nothing to copy!';
+       setTimeout(() => {
+          copyButton.textContent = 'Copy XML';
+        }, 2000);
+    }
+  });
+
+  initializeKeyboard();
+</script>
+</body>
+</html>
